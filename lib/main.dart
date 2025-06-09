@@ -35,6 +35,7 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
 
   void _inicializarTabuleiro() {
     tabuleiro = List.generate(gridSize, (_) => List.filled(gridSize, 0));
+    _adicionarNovaPeca(); // Coloca a peça inicial
   }
 
   void _mudarNivel(int tamanho) {
@@ -45,10 +46,136 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
     });
   }
 
-  void _incrementarMovimentos() {
-    setState(() {
-      movimentos++;
-    });
+  void _adicionarNovaPeca() {
+    List<List<int>> vazias = [];
+    for (int i = 0; i < gridSize; i++) {
+      for (int j = 0; j < gridSize; j++) {
+        if (tabuleiro[i][j] == 0) vazias.add([i, j]);
+      }
+    }
+
+    if (vazias.isNotEmpty) {
+      final pos = vazias[DateTime.now().millisecondsSinceEpoch % vazias.length];
+      tabuleiro[pos[0]][pos[1]] = 1;
+    }
+  }
+
+  void _mover(String direcao) {
+    bool mudou = false;
+
+    int dx = 0, dy = 0;
+    int startRow = 0, endRow = gridSize, stepRow = 1;
+    int startCol = 0, endCol = gridSize, stepCol = 1;
+
+    switch (direcao) {
+      case 'up':
+        dx = -1;
+        break;
+      case 'down':
+        dx = 1;
+        startRow = gridSize - 1;
+        endRow = -1;
+        stepRow = -1;
+        break;
+      case 'left':
+        dy = -1;
+        break;
+      case 'right':
+        dy = 1;
+        startCol = gridSize - 1;
+        endCol = -1;
+        stepCol = -1;
+        break;
+    }
+
+    List<List<bool>> fundidos = List.generate(gridSize, (_) => List.filled(gridSize, false));
+
+    List<List<int>> novoTabuleiro = List.generate(gridSize, (i) => List.from(tabuleiro[i]));
+
+    for (int i = startRow; i != endRow; i += stepRow) {
+      for (int j = startCol; j != endCol; j += stepCol) {
+        int x = i, y = j;
+
+        if (novoTabuleiro[x][y] == 0) continue;
+
+        int valor = novoTabuleiro[x][y];
+        int nx = x + dx;
+        int ny = y + dy;
+
+        while (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
+          if (novoTabuleiro[nx][ny] == 0) {
+            // Move para célula vazia
+            novoTabuleiro[nx][ny] = valor;
+            novoTabuleiro[x][y] = 0;
+            x = nx;
+            y = ny;
+            nx = x + dx;
+            ny = y + dy;
+            mudou = true;
+          } else if (novoTabuleiro[nx][ny] == valor && !fundidos[nx][ny]) {
+            // Funde com célula igual
+            novoTabuleiro[nx][ny] *= 2;
+            novoTabuleiro[x][y] = 0;
+            fundidos[nx][ny] = true;
+            mudou = true;
+            break;
+          } else {
+            // Bloqueado por valor diferente
+            break;
+          }
+        }
+      }
+    }
+
+    if (mudou) {
+      setState(() {
+        tabuleiro = novoTabuleiro;
+        movimentos++;
+        _adicionarNovaPeca();
+      });
+    }
+  }
+
+  Widget _buildNivelButton(String texto, int tamanho) {
+    return ElevatedButton(
+      onPressed: () => _mudarNivel(tamanho),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.deepOrange[300],
+        foregroundColor: Colors.white,
+        textStyle: TextStyle(fontWeight: FontWeight.bold),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(texto),
+    );
+  }
+
+  Widget _buildSeta(IconData icone) {
+    return Padding(
+      padding: const EdgeInsets.all(6.0),
+      child: IconButton(
+        icon: Icon(icone, size: 36),
+        onPressed: () {
+          switch (icone) {
+            case Icons.arrow_upward:
+              _mover('up');
+              break;
+            case Icons.arrow_downward:
+              _mover('down');
+              break;
+            case Icons.arrow_back:
+              _mover('left');
+              break;
+            case Icons.arrow_forward:
+              _mover('right');
+              break;
+          }
+        },
+        color: Colors.deepOrange[700],
+        splashRadius: 28,
+      ),
+    );
   }
 
   @override
@@ -157,33 +284,6 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNivelButton(String texto, int tamanho) {
-    return ElevatedButton(
-      onPressed: () => _mudarNivel(tamanho),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.deepOrange[300],
-        foregroundColor: Colors.white,
-        textStyle: TextStyle(fontWeight: FontWeight.bold),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      child: Text(texto),
-    );
-  }
-
-  Widget _buildSeta(IconData icone) {
-    return Padding(
-      padding: const EdgeInsets.all(6.0),
-      child: IconButton(
-        icon: Icon(icone, size: 36),
-        onPressed: _incrementarMovimentos,
-        color: Colors.deepOrange[700],
-        splashRadius: 28,
       ),
     );
   }
