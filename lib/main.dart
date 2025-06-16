@@ -26,6 +26,8 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
   int movimentos = 0;
   int gridSize = 4;
   List<List<int>> tabuleiro = [];
+  int objetivo = 1024;
+  String mensagemFinal = '';
 
   @override
   void initState() {
@@ -35,13 +37,15 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
 
   void _inicializarTabuleiro() {
     tabuleiro = List.generate(gridSize, (_) => List.filled(gridSize, 0));
-    _adicionarNovaPeca(); // Coloca a peça inicial
+    _adicionarNovaPeca();
+    mensagemFinal = '';
   }
 
   void _mudarNivel(int tamanho) {
     setState(() {
       gridSize = tamanho;
       movimentos = 0;
+      objetivo = tamanho == 4 ? 1024 : (tamanho == 5 ? 2048 : 4096);
       _inicializarTabuleiro();
     });
   }
@@ -60,9 +64,19 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
     }
   }
 
+  bool _temMovimentosPossiveis() {
+    for (int i = 0; i < gridSize; i++) {
+      for (int j = 0; j < gridSize; j++) {
+        if (tabuleiro[i][j] == 0) return true;
+        if (i + 1 < gridSize && tabuleiro[i][j] == tabuleiro[i + 1][j]) return true;
+        if (j + 1 < gridSize && tabuleiro[i][j] == tabuleiro[i][j + 1]) return true;
+      }
+    }
+    return false;
+  }
+
   void _mover(String direcao) {
     bool mudou = false;
-
     int dx = 0, dy = 0;
     int startRow = 0, endRow = gridSize, stepRow = 1;
     int startCol = 0, endCol = gridSize, stepCol = 1;
@@ -89,13 +103,11 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
     }
 
     List<List<bool>> fundidos = List.generate(gridSize, (_) => List.filled(gridSize, false));
-
     List<List<int>> novoTabuleiro = List.generate(gridSize, (i) => List.from(tabuleiro[i]));
 
     for (int i = startRow; i != endRow; i += stepRow) {
       for (int j = startCol; j != endCol; j += stepCol) {
         int x = i, y = j;
-
         if (novoTabuleiro[x][y] == 0) continue;
 
         int valor = novoTabuleiro[x][y];
@@ -104,7 +116,6 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
 
         while (nx >= 0 && nx < gridSize && ny >= 0 && ny < gridSize) {
           if (novoTabuleiro[nx][ny] == 0) {
-            // Move para célula vazia
             novoTabuleiro[nx][ny] = valor;
             novoTabuleiro[x][y] = 0;
             x = nx;
@@ -113,14 +124,12 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
             ny = y + dy;
             mudou = true;
           } else if (novoTabuleiro[nx][ny] == valor && !fundidos[nx][ny]) {
-            // Funde com célula igual
             novoTabuleiro[nx][ny] *= 2;
             novoTabuleiro[x][y] = 0;
             fundidos[nx][ny] = true;
             mudou = true;
             break;
           } else {
-            // Bloqueado por valor diferente
             break;
           }
         }
@@ -132,7 +141,43 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
         tabuleiro = novoTabuleiro;
         movimentos++;
         _adicionarNovaPeca();
+        if (tabuleiro.any((linha) => linha.contains(objetivo))) {
+          mensagemFinal = 'VOCÊ GANHOU!';
+        } else if (!_temMovimentosPossiveis()) {
+          mensagemFinal = 'VOCÊ PERDEU!';
+        }
       });
+    }
+  }
+
+  Color _corPeca(int valor) {
+    switch (valor) {
+      case 1:
+        return Colors.orange[200]!;
+      case 2:
+        return Colors.orange[300]!;
+      case 4:
+        return Colors.orange[400]!;
+      case 8:
+        return Colors.deepOrange[300]!;
+      case 16:
+        return Colors.deepOrange[400]!;
+      case 32:
+        return Colors.deepOrange[500]!;
+      case 64:
+        return Colors.deepOrange[600]!;
+      case 128:
+        return Colors.deepOrange[700]!;
+      case 256:
+        return Colors.red[400]!;
+      case 512:
+        return Colors.red[600]!;
+      case 1024:
+      case 2048:
+      case 4096:
+        return Colors.red[800]!;
+      default:
+        return Colors.white;
     }
   }
 
@@ -191,7 +236,6 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Botões de dificuldade
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -203,8 +247,6 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
               ],
             ),
             SizedBox(height: 20),
-
-            // Contador de movimentos
             Text(
               'Movimentos: $movimentos',
               style: TextStyle(
@@ -213,9 +255,17 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
                 color: Colors.deepOrange[700],
               ),
             ),
-            SizedBox(height: 20),
-
-            // Grade do jogo
+            SizedBox(height: 10),
+            if (mensagemFinal.isNotEmpty)
+              Text(
+                mensagemFinal,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: mensagemFinal == 'VOCÊ GANHOU!' ? Colors.green : Colors.red,
+                ),
+              ),
+            SizedBox(height: 10),
             Expanded(
               child: AspectRatio(
                 aspectRatio: 1,
@@ -239,7 +289,7 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
 
                       return Container(
                         decoration: BoxDecoration(
-                          color: valor > 0 ? Colors.deepOrange[300] : Colors.white,
+                          color: _corPeca(valor),
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
@@ -266,8 +316,6 @@ class _Jogo2048PageState extends State<Jogo2048Page> {
               ),
             ),
             SizedBox(height: 20),
-
-            // Botões de movimento
             Column(
               children: [
                 _buildSeta(Icons.arrow_upward),
